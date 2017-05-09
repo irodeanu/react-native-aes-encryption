@@ -48,7 +48,7 @@ public class ReactAES  extends ReactContextBaseJavaModule{
             String plainText = _crypt.decrypt(encryptedText, key,iv); //decrypt
             promise.resolve(plainText);
         } catch (Exception e) {
-            promise.reject("-1","decrypt failed");
+            promise.reject("-1","decrypt failed" + e.getMessage());
         }
 
     }
@@ -62,6 +62,11 @@ public class ReactAES  extends ReactContextBaseJavaModule{
             promise.reject("-1","gen iv failed");
         }
 
+    }
+
+    @ReactMethod
+    public void getEmptyIV(Promise promise) {
+        promise.resolve(CryptLib.getEmptyIV());
     }
 
     @ReactMethod

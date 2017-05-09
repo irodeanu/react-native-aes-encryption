@@ -12,6 +12,7 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import android.util.Base64;
 
 /*****************************************************************
@@ -105,70 +106,76 @@ public class CryptLib {
                                   EncryptMode _mode, String _initVector) throws UnsupportedEncodingException,
             InvalidKeyException, InvalidAlgorithmParameterException,
             IllegalBlockSizeException, BadPaddingException {
-        String _out = "";// output string
-        //_encryptionKey = md5(_encryptionKey);
-        //System.out.println("key="+_encryptionKey);
+        String _out = "";
 
-        int len = _encryptionKey.getBytes("UTF-8").length; // length of the key	provided
+        byte[] _byteEncryptionKey = hexStringToByteArray(_encryptionKey);
+        byte[] _byteInitVector = hexStringToByteArray(_initVector);
 
-        if (_encryptionKey.getBytes("UTF-8").length > _key.length)
+        System.out.println(_encryptionKey);
+        System.out.println(Arrays.toString(_byteEncryptionKey));
+        System.out.println(_byteEncryptionKey.length);
+        System.out.println(_initVector);
+        System.out.println(Arrays.toString(_byteInitVector));
+
+        int len = _byteEncryptionKey.length; // length of the key	provided
+
+        if (len > _key.length)
             len = _key.length;
 
-        int ivlen = _initVector.getBytes("UTF-8").length;
+        int ivlen = _byteInitVector.length;
 
-        if(_initVector.getBytes("UTF-8").length > _iv.length)
+        if(ivlen > _iv.length)
             ivlen = _iv.length;
 
-        System.arraycopy(_encryptionKey.getBytes("UTF-8"), 0, _key, 0, len);
-        System.arraycopy(_initVector.getBytes("UTF-8"), 0, _iv, 0, ivlen);
-        //KeyGenerator _keyGen = KeyGenerator.getInstance("AES");
-        //_keyGen.init(128);
+        System.arraycopy(_byteEncryptionKey, 0, _key, 0, len);
+        System.arraycopy(_byteInitVector, 0, _iv, 0, ivlen);
 
-        SecretKeySpec keySpec = new SecretKeySpec(_key, "AES"); // Create a new SecretKeySpec
-        // for the
-        // specified key
-        // data and
-        // algorithm
-        // name.
+        SecretKeySpec keySpec = new SecretKeySpec(_key, "AES");
+        IvParameterSpec ivSpec = new IvParameterSpec(_iv);
 
-        IvParameterSpec ivSpec = new IvParameterSpec(_iv); // Create a new
-        // IvParameterSpec
-        // instance with the
-        // bytes from the
-        // specified buffer
-        // iv used as
-        // initialization
-        // vector.
-
-        // encryption
         if (_mode.equals(EncryptMode.ENCRYPT)) {
             // Potentially insecure random numbers on Android 4.3 and older.
             // Read
             // https://android-developers.blogspot.com/2013/08/some-securerandom-thoughts.html
             // for more info.
             _cx.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);// Initialize this cipher instance
-            byte[] results = _cx.doFinal(_inputText.getBytes("UTF-8")); // Finish
-            // multi-part
-            // transformation
-            // (encryption)
-            _out = Base64.encodeToString(results, Base64.DEFAULT); // ciphertext
-            // output
+            byte[] results = _cx.doFinal(_inputText.getBytes("UTF-8"));
+            _out = Base64.encodeToString(results, Base64.DEFAULT);
         }
 
-        // decryption
         if (_mode.equals(EncryptMode.DECRYPT)) {
-            _cx.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);// Initialize this ipher instance
+            _cx.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
 
             byte[] decodedValue = Base64.decode(_inputText.getBytes(),
                     Base64.DEFAULT);
-            byte[] decryptedVal = _cx.doFinal(decodedValue); // Finish
-            // multi-part
-            // transformation
-            // (decryption)
+            byte[] decryptedVal = _cx.doFinal(decodedValue);
             _out = new String(decryptedVal);
         }
         System.out.println(_out);
-        return _out; // return encrypted/decrypted string
+        return _out;
+    }
+
+    private static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                                 + Character.digit(s.charAt(i + 1), 16));
+        }
+
+        return data;
+    }
+
+    private final static char[] hexArray = "0123456789abcdef".toCharArray();
+    private static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for ( int j = 0; j < bytes.length; j++ ) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
     }
 
     /***
@@ -185,25 +192,10 @@ public class CryptLib {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
 
         md.update(text.getBytes("UTF-8"));
-        byte[] digest = md.digest();
+        byte[] digest = new byte[32];
+        System.arraycopy(md.digest(), 0, digest, 0, length);
 
-        StringBuffer result = new StringBuffer();
-        for (byte b : digest) {
-            result.append(String.format("%02x", b)); //convert to hex
-        }
-        //return result.toString();
-
-        if(length > result.toString().length())
-        {
-            resultStr = result.toString();
-        }
-        else
-        {
-            resultStr = result.toString().substring(0, length);
-        }
-
-        return resultStr;
-
+        return bytesToHex(digest);
     }
 
     /***
@@ -267,18 +259,18 @@ public class CryptLib {
         SecureRandom ranGen = new SecureRandom();
         byte[] aesKey = new byte[16];
         ranGen.nextBytes(aesKey);
-        StringBuffer result = new StringBuffer();
-        for (byte b : aesKey) {
-            result.append(String.format("%02x", b)); //convert to hex
+
+        byte[] properLengthKey = new byte[16];
+        if (aesKey.length > length) {
+            System.arraycopy(aesKey, 0, properLengthKey, 0, length);
         }
-        if(length> result.toString().length())
-        {
-            return result.toString();
-        }
-        else
-        {
-            return result.toString().substring(0, length);
-        }
+
+        return bytesToHex(properLengthKey);
+    }
+
+    public static String getEmptyIV() {
+        byte[] emptyIV = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0 };
+        return bytesToHex(emptyIV);
     }
 }
 
