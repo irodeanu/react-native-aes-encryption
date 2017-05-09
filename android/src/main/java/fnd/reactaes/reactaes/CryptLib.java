@@ -111,12 +111,6 @@ public class CryptLib {
         byte[] _byteEncryptionKey = hexStringToByteArray(_encryptionKey);
         byte[] _byteInitVector = hexStringToByteArray(_initVector);
 
-        System.out.println(_encryptionKey);
-        System.out.println(Arrays.toString(_byteEncryptionKey));
-        System.out.println(_byteEncryptionKey.length);
-        System.out.println(_initVector);
-        System.out.println(Arrays.toString(_byteInitVector));
-
         int len = _byteEncryptionKey.length; // length of the key	provided
 
         if (len > _key.length)
